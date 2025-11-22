@@ -1,0 +1,1 @@
+g++ -std=c++17 -I/path/to/better-enums main.cpp magicwound.cpp -o MagicWound
