@@ -11,39 +11,47 @@
 #include <sstream>
 #include <iomanip>
 
-// Better Enums Í·ÎÄ¼ş
+// Boost åº“å¤´æ–‡ä»¶
+#include <boost/crc.hpp>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <boost/random.hpp>
+#include <boost/algorithm/string.hpp>
+
+// Better Enums å¤´æ–‡ä»¶
 #include <enum.h>
 
-// ¼òÒ×µÄCRC32Ğ£Ñé (header-only)
+// ä½¿ç”¨ Boost çš„ CRC32
 namespace crc32 {
     uint32_t calculate(const std::string& input);
     std::string generate_checksum(const std::string& input);
 }
 
-// Base64±à½âÂë
+// ä½¿ç”¨ Boost çš„ Base64
 namespace base64 {
     std::string encode(const std::string &input);
     std::string decode(const std::string &input);
 }
 
-// ¶¨Òå¿¨ÅÆÀàĞÍ
+// å¡ç‰Œç±»å‹æšä¸¾
 BETTER_ENUM(CardType, int,
-    Creature = 1,    // ÉúÎï
-    Spell = 2        // ·¨Êõ  
+    Creature = 1,    // ç”Ÿç‰©
+    Spell = 2        // æ³•æœ¯  
 )
 
-// ¶¨Òå¿¨ÅÆÔªËØ
+// å¡ç‰Œå…ƒç´ æšä¸¾
 BETTER_ENUM(Element, int,
-    Physical = 1,    // ÎïÀí
-    Light = 2,       // ¹â
-    Dark = 3,        // °µ
-    Water = 4,       // Ë®
-    Fire = 5,        // »ğ
-    Earth = 6,       // ÍÁ
-    Wind = 7         // ·ç
+    Physical = 1,    // ç‰©ç†
+    Light = 2,       // å…‰
+    Dark = 3,        // æš—
+    Water = 4,       // æ°´
+    Fire = 5,        // ç«
+    Earth = 6,       // åœŸ
+    Wind = 7         // é£
 )
 
-// ¶¨ÒåÏ¡ÓĞ¶È
+// å¡ç‰Œç¨€æœ‰åº¦
 BETTER_ENUM(Rarity, int,
     Common = 1,
     Uncommon = 2,
@@ -52,13 +60,13 @@ BETTER_ENUM(Rarity, int,
     Funny = 5
 )
 
-// ¶¨ÒåÌ×ÅÆÀàĞÍ
+// ç‰Œç»„ç±»å‹æšä¸¾
 BETTER_ENUM(DeckType, int,
-    Standard = 1,    // ±ê×¼Ì×ÅÆ
-    Casual = 2       // ÓéÀÖÌ×ÅÆ
+    Standard = 1,    // æ ‡å‡†ç‰Œç»„
+    Casual = 2       // ä¼‘é—²ç‰Œç»„
 )
 
-// ÈËÎïÀà
+// è§’è‰²ç±»
 class Character {
 private:
     std::string id;
@@ -68,11 +76,14 @@ private:
     int energy;
     std::string ability;
     std::string description;
+    std::string passive_ability;
+    std::string passive_description;
 
 public:
     Character(const std::string& id, const std::string& name, 
               const std::vector<Element>& elements, int health, int energy,
-              const std::string& ability, const std::string& description);
+              const std::string& ability, const std::string& description,
+              const std::string& passive_ability, const std::string& passive_description);
 
     std::string getId() const { return id; }
     std::string getName() const { return name; }
@@ -81,13 +92,15 @@ public:
     int getEnergy() const { return energy; }
     std::string getAbility() const { return ability; }
     std::string getDescription() const { return description; }
+    std::string getPassiveAbility() const { return passive_ability; }
+    std::string getPassiveDescription() const { return passive_description; }
 
     bool hasElement(Element element) const;
     void display() const;
     std::string elementToString(Element element) const;
 };
 
-// ¿¨ÅÆÀà
+// å¡ç‰Œç±»
 class Card {
 private:
     std::string id;
@@ -101,11 +114,10 @@ private:
     int defense;
     int health;
 
-
 public:
     std::string elementToString(Element element) const;
     std::string rarityToString(Rarity rarity) const;
-    // ĞŞ¸Ä¹¹Ôìº¯ÊıÒÔÕıÈ·³õÊ¼»¯type
+    // ä¿®æ”¹æ„é€ å‡½æ•°ä»¥æ­£ç¡®åˆå§‹åŒ–type
     Card(const std::string& id, const std::string& name, const std::vector<Element>& elements, 
          int cost, Rarity rarity, const std::string& description,
          int attack = 0, int defense = 0, int health = 0);
@@ -126,7 +138,7 @@ public:
     void display() const;
 };
 
-// Ì×ÅÆÀà
+// ç‰Œç»„ç±»
 class Deck {
 private:
     std::string name;
@@ -135,7 +147,7 @@ private:
     std::vector<std::shared_ptr<Character>> characters;
     std::vector<Element> deckElements;
     std::string deckCode;
-    int maxCardLimit;  // Ì×ÅÆ×î´ó¿¨ÅÆÊıÁ¿ÏŞÖÆ
+    int maxCardLimit;  // æœ€å¤§å¡ç‰Œæ•°é‡é™åˆ¶
 
     void updateDeckElements();
     void updateDeckCode();
@@ -161,7 +173,7 @@ public:
     
     std::map<Element, int> getElementDistribution() const;
     void display() const;
-    void shuffle(); // ĞŞ¸Äshuffle·½·¨
+    void shuffle(); // ä¿®æ”¹shuffleæ–¹æ³•
     
     bool importFromDeckCode(const std::string& code, 
                            const std::vector<std::shared_ptr<Card>>& allCards,
@@ -171,7 +183,7 @@ public:
     bool isValid() const;
 };
 
-// ÈËÎïÊı¾İ¿âÀà
+// è§’è‰²æ•°æ®åº“ç±»
 class CharacterDatabase {
 private:
     std::vector<std::shared_ptr<Character>> allCharacters;
@@ -185,7 +197,7 @@ public:
     std::vector<std::shared_ptr<Character>> getCharactersByElement(Element element) const;
 };
 
-// ¿¨ÅÆÊı¾İ¿âÀà
+// å¡ç‰Œæ•°æ®åº“ç±»
 class CardDatabase {
 private:
     std::vector<std::shared_ptr<Card>> allCards;
@@ -201,7 +213,7 @@ public:
     std::vector<std::shared_ptr<Card>> getCardsByRarity(Rarity rarity) const;
 };
 
-// ÓÎÏ·¹ÜÀíÀà
+// æ¸¸æˆç®¡ç†å™¨ç±»
 class GameManager {
 private:
     CardDatabase cardDB;
