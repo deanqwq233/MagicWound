@@ -31,13 +31,62 @@ jobs:
         run: |
           export PATH="/c/msys64/mingw64/bin:$PATH"
           set -e
-          # build resource object
+          # debug: show tool versions and verify boost headers exist
+          g++ --version || true
+          echo "windres:" $(which windres || true)
+          echo "mingw include path:" /mingw64/include
+          ls -la /mingw64/include/boost || true
+
+          # build resource object (ignore failure if resource tool not present)
           windres resource.rc resource.o || true
-          # adjust include paths below if your project needs other headers
-          g++ -std=c++17 -Ithird_party/better-enums main.cpp magicwound.cpp resource.o -lws2_32 -mconsole -pthread -o MagicWound.exe
+
+          # compile: add explicit mingw include path so Boost headers are found
+          g++ -std=c++17 -Ithird_party/better-enums -I/mingw64/include main.cpp magicwound.cpp resource.o -lws2_32 -mconsole -pthread -o MagicWound.exe
 
       - name: Upload built exe
         uses: actions/upload-artifact@v4
         with:
           name: MagicWound-windows
           path: MagicWound.exe
+
+  publish-release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: MagicWound-windows
+          path: ./out
+
+      - name: Read version file
+        id: read_version
+        run: |
+          VERSION=$(cat version | tr -d '\r\n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.read_version.outputs.version }}
+          release_name: Release ${{ steps.read_version.outputs.version }}
+          body: Automated build (run ${{ github.run_number }}) - version ${{ steps.read_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./out/MagicWound.exe
+          asset_name: MagicWound-${{ steps.read_version.outputs.version }}.exe
+          asset_content_type: application/octet-stream
