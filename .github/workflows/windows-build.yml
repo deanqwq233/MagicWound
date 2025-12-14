@@ -1,5 +1,8 @@
 name: Build Windows EXE
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main, master ]
@@ -56,6 +59,7 @@ jobs:
           path: MagicWound.exe
 
   publish-release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build-windows
     runs-on: ubuntu-latest
     steps:
