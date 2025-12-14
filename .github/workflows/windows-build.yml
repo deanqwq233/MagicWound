@@ -29,11 +29,13 @@ jobs:
       - name: Build with mingw-w64
         shell: bash
         run: |
-          export PATH="/c/msys64/mingw64/bin:$PATH"
           set -e
-          # ensure msys2 package DB is updated and required packages (Boost/toolchain) are installed
-          pacman -Syu --noconfirm || true
-          pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-toolchain || true
+          # Use MSYS2 bash to run pacman (absolute path) so pacman is found on Windows runner
+          /c/msys64/usr/bin/bash -lc "pacman -Syu --noconfirm" || true
+          /c/msys64/usr/bin/bash -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-toolchain" || true
+
+          # ensure mingw64 toolchain in PATH
+          export PATH="/c/msys64/mingw64/bin:$PATH"
 
           # debug: show tool versions and verify boost headers exist
           g++ --version || true
